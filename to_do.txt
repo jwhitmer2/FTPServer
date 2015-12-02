@@ -1,0 +1,18 @@
+--- client.cpp ---
+
+Send size of message before sending message
+
+Implement commands that interact with server
+
+One command per connection***
+
+
+--- server.cpp ---
+
+Recieve commands from client and figure out how to handle
+
+Probably the same size thing as client
+
+Finish server shell commands
+
+

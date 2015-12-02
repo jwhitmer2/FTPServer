@@ -1,0 +1,7 @@
+So far, I have the server receiving strings from any number of clients less than
+LISTENQ and sending the string back to the client that sent it. 
+There are no commands currently implemented, and the server runs on an infinite
+loop. The files can be compiled via the makefile.
+
+To run the server, the user needs to enter ./server.x <port number>
+To run the client, the user needs to enter ./client.x <IP address> <port number>
