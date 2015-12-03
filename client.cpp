@@ -75,89 +75,33 @@ int main(int argc, char **argv)
 	    exit( 4 );
 	}
 
-	// talk to the server. (Application-level protocol) 
-/*	while ( (n = read(sockfd, recvline, MAXLINE)) > 0) {
-		recvline[n] = 0;	// null terminate 
-		if (fputs(recvline, stdout) == EOF) {
-			fprintf( stderr, "fputs error: %s", strerror( errno ) );
-			exit( 5 );
-		}
-	}*/
-	printf("Enter command: ");
-	char *buffer;
-	buffer = (char *)malloc(MAXLINE * sizeof(char));
-	size_t numRead = getline(&buffer, &MAX, stdin);
-	//	buffer = (char *)realloc(buffer, numRead);
-	
-	// First send length of command to server
-	if (write(sockfd, &numRead, sizeof(numRead)) < 0)
+	while (1)
 	{
-		std::cout << "Error \n";
-		exit(0);
-	}
+		char *buffer;
+		buffer = (char *)malloc(MAXLINE * sizeof(char));
 
-	std::cout << numRead << '\n';
+		printf("Enter command: ");
+		buffer = (char *)malloc(MAXLINE * sizeof(char));
+		size_t numRead = getline(&buffer, &MAX, stdin);
 	
-	// Then write the actual command to server
-	
-	write(sockfd, buffer, sizeof(char) * numRead);
-
-	if (strncmp(buffer, "shutdown", strlen(buffer) - 1) == 0)
-	{
-		printf("Ending connection with server.\n");
-		close(sockfd);
-		exit(0);
-	}
-
-	else if (strncmp(buffer, "sign", strlen(buffer) - 1) == 0)
-	{
- 		
-		char *ipBuf = (char *)malloc(20 * sizeof(char));
-		ipBuf = inet_ntoa(servaddr.sin_addr);
-		unsigned short port = servaddr.sin_port;
-		std::string portB = std::to_string(port);
-		char *portBuf = (char *)malloc(portB.length()+1 * sizeof(char));
-		strcpy(portBuf, portB.c_str());
-		size_t ipLen = strlen(ipBuf);
-		size_t portLen = strlen(portBuf);
-		size_t totalLen = ipLen + portLen + 1;
-		std::cout << "totalLen = " << totalLen << '\n';
-	
-
-	
-		char *clientInfo = (char *)malloc(totalLen * sizeof(char));
-		strcat(clientInfo, ipBuf);
-		strcat(clientInfo, ":");
-		strcat(clientInfo, portBuf);
-		std::cout << clientInfo << '\n';
-
-		unsigned long clientLen = strlen(clientInfo);
-		// Send size of IP info to server before the actual string
-		write(sockfd, &clientInfo, sizeof(clientInfo));
-
-		if (write(sockfd, clientInfo, totalLen * sizeof(char)) <= 0)
+		// First send length of command to server
+		if (write(sockfd, &numRead, sizeof(numRead)) < 0)
 		{
 			std::cout << "Error \n";
 			exit(0);
-		} 
+		}
 
-		free(clientInfo);
-	}
-	 
-	else
-	{
-	}
-		
-	free(buffer);
-		
+		std::cout << numRead << '\n';
 	
-
-
-/*	if (n < 0) {
-
-	    fprintf( stderr, "read error: %s", strerror( errno ) );
-	    exit( 6 );
-	}*/
+		// Then write the actual command to server
+	
+		write(sockfd, buffer, sizeof(char) * numRead);
+		if (strncmp(buffer, "shutdown", strlen(buffer)-1) == 0)
+			break;
+		memset(buffer, '\0', numRead);
+		
+	}
+	printf("Ending connection with server.\n");
 	close( sockfd );
 	exit(0);
 }

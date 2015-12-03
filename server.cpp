@@ -10,6 +10,7 @@
 #include<stdlib.h>
 #include<time.h>
 
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -24,6 +25,20 @@
 int temp;
 
 
+struct Client
+{
+	std::string IPAddress;
+	int port;
+	int connfd;				
+
+
+};
+
+
+std::vector<struct Client> clientConnections;
+std::vector<std::string> signedClients;
+std::mutex signMutex;
+
 
 // This server program creates a TCP socket and listen on port "PORT_NUMBER".
 
@@ -32,6 +47,16 @@ int temp;
 // ./server.x PORT_NUMBER
 
 // A server must be launched before clients can talk to it!
+
+
+void signClient(struct Client c)
+{
+	std::string fullAddress = c.IPAddress + ":" + std::to_string(c.port);
+	signMutex.lock();
+	signedClients.push_back(fullAddress);
+	signMutex.unlock();
+}
+
 
 void processRequest (int connfd)
 {// This function determines what needs to happen next after receiving a request from a client
@@ -60,24 +85,20 @@ void processRequest (int connfd)
 
 		if (strncmp(buf, "sign", strlen(buf) -1) != 0)
 		{// Extract client IP address and port number from message sent
-			memset(buf, '\0', MAXLINE);
-			sleep(1);
-			unsigned int iplength;
-			readBytes = read(connfd, &msgLength, sizeof(msgLength));
-			std::cout << "Length of message: " << iplength << "\n";
-			readBytes = read (connfd, buf, iplength * sizeof(char));
-			std::cout << "new buf is: " << buf << '\n';
-			/*char *clientIP = strtok(buf, ":");
-			char *clientPort =  strtok(NULL, '\0');
-			unsigned short port = atoi(clientPort);
-			ntohs(port);
-			// After converting port number, rebuild string
-			std::string portB = std::to_string(port);
-			strcpy(clientPort, portB.c_str());
-			strcat(clientIP, ":");
-			strcat(clientIP, clientPort);
-		*/	printf("%s \n", buf);
-		
+			std::cout << "Registering client to server...\n";
+			for (int i = 0; i < clientConnections.size(); i++)
+			{
+				if (connfd == clientConnections[i].connfd)
+				{
+					std::cout << "Found client. Registering...\n";
+					signClient(clientConnections[i]);
+					
+				}
+			}		
+			for (int i = 0; i < signedClients.size(); i++)
+			{
+				std::cout << "Signed client: " << signedClients[i] << '\n';
+			}
 		}
 		else 
 		{
@@ -213,15 +234,14 @@ int main(int argc, char **argv)
 		newfd = connfd;
 		threadVect.push_back(std::thread(processRequest, newfd));
 		printf("connection from %s, port %d\n",
-	       inet_ntop(AF_INET, &cliaddr.sin_addr, buff, sizeof(buff)),
-	       ntohs(cliaddr.sin_port));
-	
-	ticks = time(NULL);
-	//snprintf(buff, sizeof(buff), "%.24s\r\n", ctime(&ticks));
-	//if( write(connfd, buff, strlen(buff)) < 0 ) {
-	  //  fprintf( stderr, "Write failed.  %s\n", strerror( errno ) );
-	   // exit( 1 );
-	//}
+	       	inet_ntop(AF_INET, &cliaddr.sin_addr, buff, sizeof(buff)),
+	       	ntohs(cliaddr.sin_port));
+		struct Client newClient;
+		newClient.IPAddress = buff;
+		newClient.port = ntohs(cliaddr.sin_port);
+		newClient.connfd = newfd;
+		clientConnections.push_back(newClient);
+		ticks = time(NULL);
 	}
    	
    }
