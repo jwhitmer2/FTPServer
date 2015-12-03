@@ -30,8 +30,11 @@ struct Client
 	std::string IPAddress;
 	int port;
 	int connfd;				
-
-
+	bool cache = false;
+	std::string fullInfo;
+	bool registered = false;
+	bool beenCached = false;
+	std::vector<std::string> cachedClients;
 };
 
 
@@ -49,9 +52,21 @@ std::mutex signMutex;
 // A server must be launched before clients can talk to it!
 
 
-void signClient(struct Client c)
+
+void sendList (int items, int connfd)
+{
+
+
+
+}
+
+void signClient(struct Client &c)
 {
 	std::string fullAddress = c.IPAddress + ":" + std::to_string(c.port);
+	c.fullInfo = fullAddress;
+	std::cout << "Storing: " << c.fullInfo << '\n';
+
+	c.registered = true;
 	signMutex.lock();
 	signedClients.push_back(fullAddress);
 	signMutex.unlock();
@@ -70,7 +85,6 @@ void processRequest (int connfd)
 		// First receive length of message being passed
 		unsigned int msgLength;
 		readBytes = read(connfd, &msgLength, sizeof(msgLength));
-		std::cout << msgLength;
 		if (readBytes == 0)
 		{
 			std::cout << "uh oh\n";
@@ -85,28 +99,17 @@ void processRequest (int connfd)
 
 		if (strncmp(buf, "sign", strlen(buf) -1) != 0)
 		{// Extract client IP address and port number from message sent
-			std::cout << "Registering client to server...\n";
+			//std::cout << "Registering client to server...\n";
 			for (int i = 0; i < clientConnections.size(); i++)
 			{
 				if (connfd == clientConnections[i].connfd)
 				{
-					std::cout << "Found client. Registering...\n";
 					signClient(clientConnections[i]);
-					
 				}
 			}		
-			for (int i = 0; i < signedClients.size(); i++)
-			{
-				std::cout << "Signed client: " << signedClients[i] << '\n';
-			}
 		}
-		else 
-		{
-			std::cout << "Failed.\n";
-			std::cout << "Length of message: " << strlen(buf) << '\n';	
-		}
+
 		buf[readBytes] = '\0';
-		printf("Entered in command: %s\n", buf);
 //		write(connfd, buf, readBytes);
 	}
 	printf("Shutting server down...\n");
@@ -140,14 +143,95 @@ void userShell(int connfd)
 			// list
 			if (strncmp(buffer, "list", strlen(buffer) -1 ) == 0)
 			{// implement list command
-				printf("You entered list.\n");
+				std::cout << "IP addresses and port numbers of registered clients: \n";
+				if (signedClients.size() == 0)
+				{
+					std::cout << "No clients have registered yet.\n";
+				}
+				else
+				{
+					for (int i = 0; i < signedClients.size(); i++)
+					{
+						std::cout << signedClients[i] << '\n';
+					}
+				}
 			}
 
 			// cache
 			else if (strncmp(buffer, "cache", strlen(buffer) - 1) == 0)
 			{
-				printf("You entered cache.\n");
-				// implement cache
+				if (signedClients.size() == 0)
+				{
+					std::cout << "No clients available to make cache server.\n";
+				}
+				
+				else
+				{
+					std::string in;
+					std::cout << "Enter the IP address and port number seperated by ':' for\n";
+					std::cout << "the client you would like to make a cache server.\n";
+					std::cout << "> ";
+					std::cin >> in;
+					
+					for (int i = 0; i < clientConnections.size(); i++)
+					{
+						if ((in.compare(clientConnections[i].fullInfo) == 0))
+						{// Tell the client it has been selected as a cache
+							int numClients = 0;
+							clientConnections[i].cache = true;
+							write(clientConnections[i].connfd, buffer, sizeof(char) * strlen(buffer));
+							std::cout << "Enter number of clients to cache: \n> ";
+							std::cin >> numClients;
+							std::cout << numClients;
+							if (numClients > 100)
+							{
+								std::cout << "Error, the number of clients specified is too large.\n";
+							}
+							else
+							{
+								char *quantity;
+								sprintf(quantity, "%d", numClients);
+								std::cout << quantity << '\n';
+								write(clientConnections[i].connfd, quantity, sizeof(char) * strlen(quantity));
+							
+								for (int j = 0; j < numClients; j++)
+								{
+									std::cout << "Enter the address:port of the clients to be cached: ";
+									std::string clientIn;
+									std::cin >> clientIn;
+									std::cout << "You entered: " << clientIn << '\n';
+						/*			for (int k = 0; k < clientConnections.size(); k++)
+									{
+										if (clientConnections[k].cache == false && clientConnections[k].beenCached == false && clientIn.compare(clientConnections[k].fullInfo) == 0)
+										{
+											clientConnections[i].cachedClients.push_back(clientIn);
+											clientConnections[k].beenCached = true;
+										}
+									}
+							*/	}
+							
+
+						/*	// Loop for each client to be cached, sending the client each address
+								for (int m = 0; m < numClients; m++)
+								{
+									std::string tmp = clientConnections[i].cachedClients[m];
+								
+									char *sendMsg = new char [tmp.length() +1];	
+									strcpy(sendMsg, tmp.c_str()); 
+				
+									write(clientConnections[i].connfd, sendMsg, sizeof(char) * strlen(sendMsg));
+									free(sendMsg);	
+								}*/
+							}		
+						}
+						else 
+						{
+							std::cout << "Address is either invalid or the ";
+							std::cout << "corresponding client has not ";
+							std::cout << "registered w/ the server yet.\n\n";
+						}
+					}
+				}				
 			}
 			
 			// shutdown
