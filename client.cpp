@@ -26,6 +26,8 @@
 #include<errno.h>
 #include<string.h>
 
+#include "directory.hpp"
+
 #include <thread>
 #include <iostream>
 #include <cstdlib>
@@ -41,6 +43,88 @@ bool cache = false;
 int temp;
 
 std::vector<std::string> cachedClients;
+
+std::vector<std::string> sharedFiles;
+
+void executeLs (char *arg)
+{
+        const char *dirName;
+	if (arg == NULL)
+	{
+		std::cout << "ls with no args \n";
+		dirName = ".";
+	}
+	else
+	{
+		dirName = strtok(arg, " \n");
+		std::cout << "Opening " << dirName << '\n';
+		std::cout << strlen(dirName) << '\n';
+	}
+
+	DIR *curDir = opendir(dirName);
+
+	if (curDir == NULL)
+	{
+		std::cout << "Unable to open " << dirName << '\n';
+		return;
+	}
+
+	struct dirent *dEntry;
+
+	DirectoryListing dirL;
+	while ((dEntry = readdir(curDir)) != NULL)
+	{
+		struct stat dStat;
+		stat(dEntry->d_name, &dStat);
+		if (dEntry->d_name[0] != '.')
+			dirL.addEntry(dEntry->d_name, dStat, dirName);
+		
+	}
+	std::cout << "There are " << dirL.numEntries() << " entries in this directory.\n";
+	dirL.print();		
+
+	return;
+}
+
+void executeDownload (char* arg1, char* arg2)
+{
+	std::cout << "Downloading " << arg1 << " " << arg2 << "\n";
+
+	return;
+}
+
+void executeShare (char* arg)
+{
+	std::cout << "Sharing " << arg << "\n";
+	return;
+}
+
+
+void sendRequest(int sockfd)
+{
+	size_t MAX = (size_t)MAXLINE;
+	char *buffer;
+	buffer = (char *)malloc(MAXLINE * sizeof(char));
+		
+	printf("Enter command: ");
+
+	size_t numRead = getline(&buffer, &MAX, stdin);
+	
+	// First send length of command to server
+	if (write(sockfd, &numRead, sizeof(numRead)) < 0)
+	{
+		std::cout << "Error \n";
+		exit(0);
+	}
+
+	//	std::cout << numRead << '\n';
+	
+	// Then write the actual command to server
+	
+	write(sockfd, buffer, sizeof(char) * numRead);
+	free(buffer);
+			
+}
 
 
 void processRequest(int sockfd)
@@ -89,9 +173,9 @@ int main(int argc, char **argv)
         int sockfd, n;
 	char recvline[MAXLINE + 1];
 	char buf[MAXLINE + 1];
-//	char buff[MAXLINE + 1];
+
 	struct sockaddr_in	servaddr;
-	size_t MAX = (size_t)MAXLINE;	
+		
 
 	if (argc != 3) {
 	    fprintf( stderr, "Usage: %s <IPaddress>\n", argv[0] );
@@ -126,31 +210,93 @@ int main(int argc, char **argv)
 
 	threadVect.push_back(std::thread(processRequest, sockfd));
 
+	
+	size_t maxCommand = 75;
+	char *buffer;
+
+	buffer = (char *)malloc(maxCommand * sizeof(char));
+
 	while (1)
 	{
-		char *buffer;
-		buffer = (char *)malloc(MAXLINE * sizeof(char));
-		
-	
-		printf("Enter command: ");
+		std::cout << "Press 1 to interact with server.\n";
+		std::cout << "Press 2 to enter in client command.\n";
+		std::cout << "> ";
+		size_t bytesRead = getline(&buffer, &maxCommand, stdin);
 
-		size_t numRead = getline(&buffer, &MAX, stdin);
-	
-		// First send length of command to server
-		if (write(sockfd, &numRead, sizeof(numRead)) < 0)
+		if (strncmp(buffer, "1", 1) == 0)
 		{
-			std::cout << "Error \n";
-			exit(0);
+			sendRequest(sockfd);
+		}
+		else if (strncmp(buffer, "2", 1) == 0)
+		{
+			std::cout << "Enter a client command: \n";
+			std::cout << "> ";
+			// Reset buffer and accept and evaluate command
+			memset(buffer, '\0', bytesRead);
+			getline(&buffer, &maxCommand, stdin);
+			// Call related functions for each command
+
+			if (strncmp(buffer, "shutdown", strlen(buffer) -1) == 0)
+			{
+				std::cout << "You entered shutdown.\n";
+			}
+			else if (strncmp(buffer, "ls", 2) == 0)
+			{// If there is a directory following ls, parse and send as arg to function
+			 // Otherwise just pass NULL as directory arg.
+				std::cout << "You entered ls.\n";
+				if (strlen(buffer) > 3)
+				{
+					char *arg = strtok(buffer, " ");
+					arg = strtok(NULL, " ");
+					executeLs(arg);
+				}
+				else
+				{
+					executeLs(NULL);
+				}
+			}
+			else if (strncmp(buffer, "status", strlen(buffer) - 1) == 0)
+			{
+				std::cout << "You entered status.\n";
+			}
+			else if (strncmp(buffer, "list", strlen(buffer) - 1) == 0)
+			{
+				std::cout << "You entered list.\n";
+			
+			}
+
+			else if (strncmp(buffer, "share", 5) == 0)
+			{// PArse and send second token as file name argument for function
+				std::cout << "You entered share.\n";
+				char *arg = strtok(buffer, " ");
+				arg = strtok(NULL, " ");
+				executeShare(arg);
+			}
+
+			else if (strncmp(buffer, "download", 8) == 0)
+			{
+				std::cout << "You entered download.\n";
+				char *firstArg = strtok(buffer, " ");
+				firstArg = strtok(NULL, " ");
+				char *secondArg = strtok(NULL, " ");
+				executeDownload(firstArg, secondArg);
+			}
+
+			else
+			{
+				std::cout << "Not a valid client command";
+			}
+			
+			memset(buffer, '\0', maxCommand);	
+		
 		}
 
-	//	std::cout << numRead << '\n';
-	
-		// Then write the actual command to server
-	
-		write(sockfd, buffer, sizeof(char) * numRead);
-		if (strncmp(buffer, "shutdown", strlen(buffer)-1) == 0)
-			break;
-		memset(buffer, '\0', numRead);	
+		else 
+		{
+			std::cout << "Please enter valid input..\n";
+		}
+
+		memset(buffer, '\0', maxCommand);
 			
 	}
 	for (int i = 0; i < threadVect.size(); i++)

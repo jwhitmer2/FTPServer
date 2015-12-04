@@ -175,54 +175,21 @@ void userShell(int connfd)
 					
 					for (int i = 0; i < clientConnections.size(); i++)
 					{
-						if ((in.compare(clientConnections[i].fullInfo) == 0))
+						if ((in.compare(clientConnections[i].fullInfo) == 0) && clientConnections[i].registered == true)
 						{// Tell the client it has been selected as a cache
-							int numClients = 0;
+							int numClients = signedClients.size() - 1;
 							clientConnections[i].cache = true;
 							write(clientConnections[i].connfd, buffer, sizeof(char) * strlen(buffer));
-							std::cout << "Enter number of clients to cache: \n> ";
-							std::cin >> numClients;
-							std::cout << numClients;
-							if (numClients > 100)
+							char *quantity;
+							sprintf(quantity, "%d", numClients);
+							std::cout << "Sending " << quantity << '\n';
+							
+							write(clientConnections[i].connfd, quantity, sizeof(char) * strlen(quantity));
+							for (int i = 0; i < numClients; i++)
 							{
-								std::cout << "Error, the number of clients specified is too large.\n";
+								std::cout << "a\n";
 							}
-							else
-							{
-								char *quantity;
-								sprintf(quantity, "%d", numClients);
-								std::cout << quantity << '\n';
-								write(clientConnections[i].connfd, quantity, sizeof(char) * strlen(quantity));
-							
-								for (int j = 0; j < numClients; j++)
-								{
-									std::cout << "Enter the address:port of the clients to be cached: ";
-									std::string clientIn;
-									std::cin >> clientIn;
-									std::cout << "You entered: " << clientIn << '\n';
-						/*			for (int k = 0; k < clientConnections.size(); k++)
-									{
-										if (clientConnections[k].cache == false && clientConnections[k].beenCached == false && clientIn.compare(clientConnections[k].fullInfo) == 0)
-										{
-											clientConnections[i].cachedClients.push_back(clientIn);
-											clientConnections[k].beenCached = true;
-										}
-									}
-							*/	}
-							
-
-						/*	// Loop for each client to be cached, sending the client each address
-								for (int m = 0; m < numClients; m++)
-								{
-									std::string tmp = clientConnections[i].cachedClients[m];
-								
-									char *sendMsg = new char [tmp.length() +1];	
-									strcpy(sendMsg, tmp.c_str()); 
-				
-									write(clientConnections[i].connfd, sendMsg, sizeof(char) * strlen(sendMsg));
-									free(sendMsg);	
-								}*/
-							}		
+	
 						}
 						else 
 						{
